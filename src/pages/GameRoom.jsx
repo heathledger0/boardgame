@@ -48,9 +48,14 @@ export default function GameRoom() {
     )
   }
 
-  const isMyTurn = room.status === 'playing' && room.turnOrder[room.turnIndex] === playerId
+  // Firebase Realtime Database는 빈 배열/객체를 저장하지 않고 지워버리므로
+  // (예: 아직 순서가 정해지지 않은 대기 중인 방) 항상 기본값으로 보정해서 사용한다.
+  const turnOrder = room.turnOrder || []
+  const players = room.players || {}
+
+  const isMyTurn = room.status === 'playing' && turnOrder[room.turnIndex] === playerId
   const currentPlayerName = room.status === 'playing'
-    ? room.players?.[room.turnOrder[room.turnIndex]]?.name
+    ? players[turnOrder[room.turnIndex]]?.name
     : null
 
   async function handleDraw() {
@@ -100,7 +105,7 @@ export default function GameRoom() {
           {room.winnerId
             ? room.winnerId === playerId
               ? '🏆 당신이 우승했습니다!'
-              : `🏆 우승자: ${room.players?.[room.winnerId]?.name}`
+              : `🏆 우승자: ${players[room.winnerId]?.name}`
             : '무승부로 게임이 종료되었습니다.'}
         </p>
       )}
@@ -134,9 +139,10 @@ export default function GameRoom() {
 
       <h2>참가자</h2>
       <ul className="player-list">
-        {room.turnOrder.length > 0
-          ? room.turnOrder.map((pid) => {
-              const p = room.players[pid]
+        {turnOrder.length > 0
+          ? turnOrder.map((pid) => {
+              const p = players[pid]
+              if (!p) return null
               return (
                 <li key={pid} className={p.eliminated ? 'eliminated' : ''}>
                   <span>
@@ -151,7 +157,7 @@ export default function GameRoom() {
                 </li>
               )
             })
-          : Object.entries(room.players || {}).map(([pid, p]) => (
+          : Object.entries(players).map(([pid, p]) => (
               <li key={pid}>{p.name} {pid === playerId ? '(나)' : ''}</li>
             ))}
       </ul>
