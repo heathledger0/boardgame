@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { subscribeToRoom, drawCard, markEliminated } from '../lib/gameEngine'
+import { subscribeToRoom, drawCard, callOut, confirmOut } from '../lib/gameEngine'
 import { getStoredPlayerId } from '../lib/storage'
 import { getCardById, COLOR_STYLES } from '../data/cards'
 
@@ -24,14 +24,27 @@ export default function GameRoom() {
   }, [roomId, playerId, navigate])
 
   useEffect(() => {
-    const callOut = room?.lastCallOut
-    if (!callOut || callOut.ts === lastCalloutTs.current) return
-    lastCalloutTs.current = callOut.ts
-    const targetName = room.players?.[callOut.targetId]?.name || '누군가'
+    const event = room?.lastCallOut
+    if (!event || event.ts === lastCalloutTs.current) return
+    lastCalloutTs.current = event.ts
+    const targetName = room.players?.[event.targetId]?.name || '누군가'
     setCalloutName(targetName)
-    const timer = setTimeout(() => setCalloutName(null), CALLOUT_DURATION_MS)
-    return () => clearTimeout(timer)
-  }, [room])
+    const hideTimer = setTimeout(() => setCalloutName(null), CALLOUT_DURATION_MS)
+
+    // 사이렌 연출이 끝난 뒤, 지목당한 본인 화면에만 인정 여부를 묻는다.
+    let confirmTimer
+    if (event.targetId === playerId) {
+      confirmTimer = setTimeout(() => {
+        const accepted = window.confirm(`${targetName}님, 정말 아웃을 인정하시겠어요?`)
+        if (accepted) confirmOut(roomId, playerId)
+      }, CALLOUT_DURATION_MS)
+    }
+
+    return () => {
+      clearTimeout(hideTimer)
+      if (confirmTimer) clearTimeout(confirmTimer)
+    }
+  }, [room, playerId, roomId])
 
   const myHandByColor = useMemo(() => {
     const hand = room?.players?.[playerId]?.hand || []
@@ -82,8 +95,8 @@ export default function GameRoom() {
   }
 
   async function handleCallOut(targetId, targetName) {
-    if (!confirm(`${targetName}님, 딱 걸렸다고 표시할까요? (지시사항을 수행하지 못한 경우)`)) return
-    await markEliminated(roomId, targetId)
+    if (!confirm(`${targetName}님을 지목할까요? (지시사항을 수행하지 못한 것 같을 때)`)) return
+    await callOut(roomId, targetId)
   }
 
   return (
@@ -169,7 +182,7 @@ export default function GameRoom() {
                 <li key={pid} className={p.eliminated ? 'eliminated' : ''}>
                   <span>
                     {p.name} {pid === playerId ? '(나)' : ''} - 카드 {p.hand?.length || 0}장
-                    {p.eliminated ? ' - 탈락' : ''}
+                    {p.eliminated ? ' - 아웃' : ''}
                   </span>
                   {room.status === 'playing' && !p.eliminated && (
                     <button className="small danger" onClick={() => handleCallOut(pid, p.name)}>

@@ -106,7 +106,7 @@ export default function TeacherDashboard() {
                 {players.length === 0 && <li className="muted">아직 참가자 없음</li>}
                 {players.map(([pid, p]) => (
                   <li key={pid}>
-                    {p.name} {p.eliminated ? '❌ 탈락' : ''}
+                    {p.name} {p.eliminated ? '🛑 아웃' : ''}
                   </li>
                 ))}
               </ul>
@@ -125,7 +125,7 @@ export default function TeacherDashboard() {
                 <p className="winner">
                   {room.winnerId
                     ? `🏆 승자: ${room.players?.[room.winnerId]?.name || '알 수 없음'}`
-                    : '무승부 (카드 소진 또는 전원 탈락)'}
+                    : '무승부 (카드 소진 또는 전원 아웃)'}
                 </p>
               )}
             </div>

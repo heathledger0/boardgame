@@ -148,15 +148,28 @@ export async function drawCard(roomId, playerId) {
   return snapshot.val()
 }
 
-export async function markEliminated(roomId, playerId) {
+// 다른 참가자를 지목만 하는 단계. 아직 아무도 아웃 처리되지 않고,
+// 방에 있는 모든 화면에 사이렌 연출만 띄운다. 실제 아웃 여부는 지목당한
+// 본인이 confirmOut()으로 스스로 인정해야 확정된다. (장난으로 남을
+// 바로 탈락시키는 것을 막기 위함)
+export async function callOut(roomId, targetId) {
+  const roomRef = ref(db, `rooms/${roomId}`)
+  await runTransaction(roomRef, (room) => {
+    if (!room || !room.players?.[targetId]) return room
+    if (room.players[targetId].eliminated) return room
+    room.lastCallOut = { targetId, ts: Date.now() }
+    return room
+  })
+}
+
+// 지목당한 본인이 "인정"을 눌렀을 때만 호출되는 실제 아웃 처리.
+export async function confirmOut(roomId, playerId) {
   const roomRef = ref(db, `rooms/${roomId}`)
   await runTransaction(roomRef, (room) => {
     if (!room || !room.players?.[playerId]) return room
     if (room.players[playerId].eliminated) return room
 
     room.players[playerId] = { ...room.players[playerId], eliminated: true }
-    // 방에 있는 모든 화면이 동시에 "딱 걸렸어!" 연출을 띄울 수 있도록 브로드캐스트
-    room.lastCallOut = { targetId: playerId, ts: Date.now() }
     const remaining = room.turnOrder.filter((pid) => !room.players[pid].eliminated)
 
     if (remaining.length <= 1) {
