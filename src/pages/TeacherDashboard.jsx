@@ -9,6 +9,7 @@ import {
   MAX_PLAYERS,
 } from '../lib/gameEngine'
 import { getTeacherRoomIds, addTeacherRoomId, removeTeacherRoomId } from '../lib/storage'
+import ConfirmModal from '../components/ConfirmModal'
 
 const MAX_ROOMS = 10
 
@@ -23,6 +24,7 @@ export default function TeacherDashboard() {
   const [rooms, setRooms] = useState({})
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [pendingAction, setPendingAction] = useState(null) // { type: 'reset' | 'remove', roomId }
 
   useEffect(() => {
     if (roomIds.length === 0) return
@@ -59,19 +61,32 @@ export default function TeacherDashboard() {
     }
   }
 
-  async function handleReset(roomId) {
-    if (!confirm('이 방을 초기화하면 진행 중인 게임 기록이 사라집니다. 계속할까요?')) return
-    await resetRoom(roomId)
-  }
-
-  function handleRemove(roomId) {
-    if (!confirm('목록에서 이 모둠 방을 제거할까요? (참가자 접속은 계속 유효합니다)')) return
-    removeTeacherRoomId(roomId)
-    setRoomIds(getTeacherRoomIds())
+  async function confirmPendingAction() {
+    if (!pendingAction) return
+    const { type, roomId } = pendingAction
+    setPendingAction(null)
+    if (type === 'reset') {
+      await resetRoom(roomId)
+    } else if (type === 'remove') {
+      removeTeacherRoomId(roomId)
+      setRoomIds(getTeacherRoomIds())
+    }
   }
 
   return (
     <div className="page">
+      <ConfirmModal
+        open={!!pendingAction}
+        message={
+          pendingAction?.type === 'reset'
+            ? '이 방을 초기화하면 진행 중인 게임 기록이 사라집니다. 계속할까요?'
+            : '목록에서 이 모둠 방을 제거할까요? (참가자 접속은 계속 유효합니다)'
+        }
+        confirmLabel="확인"
+        cancelLabel="취소"
+        onConfirm={confirmPendingAction}
+        onCancel={() => setPendingAction(null)}
+      />
       <h1>모둠 카드 게임 - 교사 대시보드</h1>
       <p className="muted">
         모둠마다 방을 만들고 QR코드를 보여주면, 학생들은 스캔해서 바로 입장합니다. (최대{' '}
@@ -115,8 +130,8 @@ export default function TeacherDashboard() {
                 <button onClick={() => handleStart(roomId)} disabled={!canStart}>
                   게임 시작
                 </button>
-                <button onClick={() => handleReset(roomId)}>초기화</button>
-                <button onClick={() => handleRemove(roomId)} className="danger">
+                <button onClick={() => setPendingAction({ type: 'reset', roomId })}>초기화</button>
+                <button onClick={() => setPendingAction({ type: 'remove', roomId })} className="danger">
                   목록에서 제거
                 </button>
               </div>

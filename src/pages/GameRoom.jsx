@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { subscribeToRoom, drawCard, callOut, confirmOut } from '../lib/gameEngine'
 import { getStoredPlayerId } from '../lib/storage'
 import { getCardById, COLOR_STYLES } from '../data/cards'
+import ConfirmModal from '../components/ConfirmModal'
 
 const CALLOUT_DURATION_MS = 1800
 
@@ -13,6 +14,8 @@ export default function GameRoom() {
   const [room, setRoom] = useState(null)
   const [error, setError] = useState('')
   const [calloutName, setCalloutName] = useState(null)
+  const [pendingCallOut, setPendingCallOut] = useState(null) // { targetId, targetName }
+  const [showOutConfirm, setShowOutConfirm] = useState(false)
   const lastCalloutTs = useRef(null)
 
   useEffect(() => {
@@ -34,17 +37,14 @@ export default function GameRoom() {
     // 사이렌 연출이 끝난 뒤, 지목당한 본인 화면에만 인정 여부를 묻는다.
     let confirmTimer
     if (event.targetId === playerId) {
-      confirmTimer = setTimeout(() => {
-        const accepted = window.confirm(`${targetName}님, 정말 아웃을 인정하시겠어요?`)
-        if (accepted) confirmOut(roomId, playerId)
-      }, CALLOUT_DURATION_MS)
+      confirmTimer = setTimeout(() => setShowOutConfirm(true), CALLOUT_DURATION_MS)
     }
 
     return () => {
       clearTimeout(hideTimer)
       if (confirmTimer) clearTimeout(confirmTimer)
     }
-  }, [room, playerId, roomId])
+  }, [room, playerId])
 
   const myHandByColor = useMemo(() => {
     const hand = room?.players?.[playerId]?.hand || []
@@ -94,13 +94,39 @@ export default function GameRoom() {
     }
   }
 
-  async function handleCallOut(targetId, targetName) {
-    if (!confirm(`${targetName}님을 지목할까요? (지시사항을 수행하지 못한 것 같을 때)`)) return
-    await callOut(roomId, targetId)
+  function handleCallOutClick(targetId, targetName) {
+    setPendingCallOut({ targetId, targetName })
+  }
+
+  async function confirmPendingCallOut() {
+    if (!pendingCallOut) return
+    await callOut(roomId, pendingCallOut.targetId)
+    setPendingCallOut(null)
+  }
+
+  async function handleConfirmOut() {
+    setShowOutConfirm(false)
+    await confirmOut(roomId, playerId)
   }
 
   return (
     <div className="page">
+      <ConfirmModal
+        open={!!pendingCallOut}
+        message={`${pendingCallOut?.targetName}님을 지목할까요? (지시사항을 수행하지 못한 것 같을 때)`}
+        confirmLabel="지목하기"
+        cancelLabel="취소"
+        onConfirm={confirmPendingCallOut}
+        onCancel={() => setPendingCallOut(null)}
+      />
+      <ConfirmModal
+        open={showOutConfirm}
+        message="딱 걸렸어요! 정말 아웃을 인정하시겠어요?"
+        confirmLabel="인정할게요"
+        cancelLabel="아니요, 계속할게요"
+        onConfirm={handleConfirmOut}
+        onCancel={() => setShowOutConfirm(false)}
+      />
       {calloutName && (
         <div className="callout-overlay">
           <div className="callout-badge">
@@ -185,7 +211,7 @@ export default function GameRoom() {
                     {p.eliminated ? ' - 아웃' : ''}
                   </span>
                   {room.status === 'playing' && !p.eliminated && (
-                    <button className="small danger" onClick={() => handleCallOut(pid, p.name)}>
+                    <button className="small danger" onClick={() => handleCallOutClick(pid, p.name)}>
                       딱 걸렸어!
                     </button>
                   )}
