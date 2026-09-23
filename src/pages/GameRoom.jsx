@@ -136,7 +136,7 @@ export default function GameRoom() {
         </div>
       )}
       <div className="room-header">
-        <h1>방 {roomId}</h1>
+        <h1>{room.name || `방 ${roomId}`}</h1>
         <span className={`status status-${room.status}`}>
           {room.status === 'waiting' && '대기 중'}
           {room.status === 'playing' && '진행 중'}

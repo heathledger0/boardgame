@@ -86,6 +86,34 @@ button.small {
   word-break: break-all;
 }
 
+.room-code {
+  font-size: 0.8rem;
+  margin-top: -4px;
+}
+
+.room-name-edit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.room-name-edit input {
+  font-size: 1.1rem;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  max-width: 140px;
+}
+
+.rename-btn {
+  border: none;
+  background: none;
+  padding: 0 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
 .status {
   padding: 2px 10px;
   border-radius: 999px;

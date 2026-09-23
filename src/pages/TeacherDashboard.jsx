@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import {
   createRoom,
+  renameRoom,
   startGame,
   resetRoom,
   subscribeToRoomList,
@@ -25,6 +26,8 @@ export default function TeacherDashboard() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [pendingAction, setPendingAction] = useState(null) // { type: 'reset' | 'remove', roomId }
+  const [editingRoomId, setEditingRoomId] = useState(null)
+  const [editName, setEditName] = useState('')
 
   useEffect(() => {
     if (roomIds.length === 0) return
@@ -42,13 +45,28 @@ export default function TeacherDashboard() {
     }
     setBusy(true)
     try {
-      const roomId = await createRoom()
+      const defaultName = `${roomIds.length + 1}모둠`
+      const roomId = await createRoom(defaultName)
       addTeacherRoomId(roomId)
       setRoomIds(getTeacherRoomIds())
     } catch (e) {
       setError(e.message)
     } finally {
       setBusy(false)
+    }
+  }
+
+  function startEditingName(roomId, currentName) {
+    setEditingRoomId(roomId)
+    setEditName(currentName)
+  }
+
+  async function saveEditingName(roomId) {
+    try {
+      await renameRoom(roomId, editName)
+      setEditingRoomId(null)
+    } catch (e) {
+      setError(e.message)
     }
   }
 
@@ -108,11 +126,38 @@ export default function TeacherDashboard() {
           return (
             <div className="room-card" key={roomId}>
               <div className="room-card-header">
-                <h2>{roomId}</h2>
+                {editingRoomId === roomId ? (
+                  <div className="room-name-edit">
+                    <input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      maxLength={20}
+                      autoFocus
+                    />
+                    <button className="small" onClick={() => saveEditingName(roomId)}>
+                      저장
+                    </button>
+                    <button className="small" onClick={() => setEditingRoomId(null)}>
+                      취소
+                    </button>
+                  </div>
+                ) : (
+                  <h2>
+                    {room?.name || roomId}{' '}
+                    <button
+                      className="small rename-btn"
+                      onClick={() => startEditingName(roomId, room?.name || roomId)}
+                      title="모둠 이름 수정"
+                    >
+                      ✏️
+                    </button>
+                  </h2>
+                )}
                 <span className={`status status-${room?.status || 'loading'}`}>
                   {STATUS_LABEL[room?.status] || '불러오는 중'}
                 </span>
               </div>
+              <p className="muted room-code">코드: {roomId}</p>
 
               <QRCodeSVG value={joinUrl} size={140} />
               <p className="join-url">{joinUrl}</p>

@@ -34,7 +34,7 @@ function nextTurnIndex(room, fromIndex) {
   return fromIndex
 }
 
-export async function createRoom() {
+export async function createRoom(name) {
   for (let attempt = 0; attempt < 5; attempt++) {
     const roomId = generateRoomCode()
     const roomRef = ref(db, `rooms/${roomId}`)
@@ -42,6 +42,7 @@ export async function createRoom() {
     if (snapshot.exists()) continue
     const deck = shuffle(CARD_DEFINITIONS.map((c) => c.id))
     await set(roomRef, {
+      name: name?.trim() || roomId,
       status: 'waiting',
       createdAt: Date.now(),
       deck,
@@ -90,6 +91,12 @@ export async function joinRoom(roomId, name) {
     joinedAt: Date.now(),
   })
   return playerRef.key
+}
+
+export async function renameRoom(roomId, name) {
+  const trimmed = name?.trim()
+  if (!trimmed) throw new Error('모둠 이름을 입력해주세요.')
+  await update(ref(db, `rooms/${roomId}`), { name: trimmed })
 }
 
 export async function startGame(roomId) {
