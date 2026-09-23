@@ -105,17 +105,32 @@ export async function startGame(roomId) {
   await update(roomRef, { status: 'playing', turnOrder: ids, turnIndex: 0 })
 }
 
-// 방장(교사) 화면에서 방을 초기화하고 싶을 때 사용
+// 방장(교사) 화면에서 방을 초기화하고 싶을 때 사용.
+// 덱/순서뿐 아니라 각 참가자의 "뽑은 카드"와 "아웃 여부"도 같이 되돌려야
+// 재시작한 게임에서 지난 판에 아웃됐던 사람이 계속 순서에서 제외되는
+// 문제가 생기지 않는다.
 export async function resetRoom(roomId) {
   const roomRef = ref(db, `rooms/${roomId}`)
+  const room = await getRoomOnce(roomId)
   const deck = shuffle(CARD_DEFINITIONS.map((c) => c.id))
-  await update(roomRef, {
+  const players = room?.players || {}
+  const resetPlayers = Object.fromEntries(
+    Object.entries(players).map(([pid, p]) => [pid, { ...p, hand: [], eliminated: false }])
+  )
+  const updates = {
     status: 'waiting',
     deck,
     turnOrder: [],
     turnIndex: 0,
     winnerId: null,
-  })
+    lastCallOut: null,
+  }
+  // Realtime Database는 빈 객체({})를 값으로 저장할 수 없으므로, 참가자가
+  // 있을 때만 players를 함께 갱신한다.
+  if (Object.keys(resetPlayers).length > 0) {
+    updates.players = resetPlayers
+  }
+  await update(roomRef, updates)
 }
 
 export async function drawCard(roomId, playerId) {
