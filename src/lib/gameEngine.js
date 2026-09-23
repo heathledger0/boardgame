@@ -155,6 +155,8 @@ export async function markEliminated(roomId, playerId) {
     if (room.players[playerId].eliminated) return room
 
     room.players[playerId] = { ...room.players[playerId], eliminated: true }
+    // 방에 있는 모든 화면이 동시에 "딱 걸렸어!" 연출을 띄울 수 있도록 브로드캐스트
+    room.lastCallOut = { targetId: playerId, ts: Date.now() }
     const remaining = room.turnOrder.filter((pid) => !room.players[pid].eliminated)
 
     if (remaining.length <= 1) {

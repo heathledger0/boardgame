@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { subscribeToRoom, drawCard, markEliminated } from '../lib/gameEngine'
 import { getStoredPlayerId } from '../lib/storage'
 import { getCardById, COLOR_STYLES } from '../data/cards'
+
+const CALLOUT_DURATION_MS = 1800
 
 export default function GameRoom() {
   const { roomId } = useParams()
@@ -10,6 +12,8 @@ export default function GameRoom() {
   const playerId = getStoredPlayerId(roomId)
   const [room, setRoom] = useState(null)
   const [error, setError] = useState('')
+  const [calloutName, setCalloutName] = useState(null)
+  const lastCalloutTs = useRef(null)
 
   useEffect(() => {
     if (!playerId) {
@@ -18,6 +22,16 @@ export default function GameRoom() {
     }
     return subscribeToRoom(roomId, setRoom)
   }, [roomId, playerId, navigate])
+
+  useEffect(() => {
+    const callOut = room?.lastCallOut
+    if (!callOut || callOut.ts === lastCalloutTs.current) return
+    lastCalloutTs.current = callOut.ts
+    const targetName = room.players?.[callOut.targetId]?.name || '누군가'
+    setCalloutName(targetName)
+    const timer = setTimeout(() => setCalloutName(null), CALLOUT_DURATION_MS)
+    return () => clearTimeout(timer)
+  }, [room])
 
   const myHandByColor = useMemo(() => {
     const hand = room?.players?.[playerId]?.hand || []
@@ -67,13 +81,21 @@ export default function GameRoom() {
     }
   }
 
-  async function handleMarkEliminated(targetId, targetName) {
-    if (!confirm(`${targetName}님을 탈락 처리할까요? (지시사항을 수행하지 못한 경우)`)) return
+  async function handleCallOut(targetId, targetName) {
+    if (!confirm(`${targetName}님, 딱 걸렸다고 표시할까요? (지시사항을 수행하지 못한 경우)`)) return
     await markEliminated(roomId, targetId)
   }
 
   return (
     <div className="page">
+      {calloutName && (
+        <div className="callout-overlay">
+          <div className="callout-badge">
+            <span className="callout-name">{calloutName}</span>
+            <span>딱 걸렸어! 🚨</span>
+          </div>
+        </div>
+      )}
       <div className="room-header">
         <h1>방 {roomId}</h1>
         <span className={`status status-${room.status}`}>
@@ -150,8 +172,8 @@ export default function GameRoom() {
                     {p.eliminated ? ' - 탈락' : ''}
                   </span>
                   {room.status === 'playing' && !p.eliminated && (
-                    <button className="small danger" onClick={() => handleMarkEliminated(pid, p.name)}>
-                      탈락 처리
+                    <button className="small danger" onClick={() => handleCallOut(pid, p.name)}>
+                      딱 걸렸어!
                     </button>
                   )}
                 </li>
