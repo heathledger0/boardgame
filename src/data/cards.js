@@ -41,12 +41,12 @@ export const CARD_DEFINITIONS = [
   { id: 'pose-wristbend', color: 'pose', label: '오른쪽 손목을 구부려요', image: 'pose-wristbend.png' },
   { id: 'pose-thumbtouch', color: 'pose', label: '엄지손가락이 다른 손가락과 닿아요', image: 'pose-thumbtouch.png' },
   { id: 'pose-indexup', color: 'pose', label: '집게손가락이 위를 향해요', image: 'pose-indexup.png' },
-  { id: 'pose-fingerear', color: 'pose', label: '손가락 하나가 내 귀와 닿아요', image: null },
-  { id: 'pose-fingernose', color: 'pose', label: '손가락 하나가 내 코와 닿아요', image: null },
-  { id: 'pose-fingerabovehead', color: 'pose', label: '손가락을 내 머리보다 높이 들어요', image: null },
-  { id: 'pose-pinkydown', color: 'pose', label: '새끼손가락이 아래로 향해요', image: null },
-  { id: 'pose-indexisolate', color: 'pose', label: '집게손가락이 어디에도 닿지 않아요', image: null },
-  { id: 'pose-hideteeth', color: 'pose', label: '내 치아를 숨겨요', image: null },
+  { id: 'pose-fingerear', color: 'pose', label: '손가락 하나가 내 귀와 닿아요', image: 'pose-fingerear.png' },
+  { id: 'pose-fingernose', color: 'pose', label: '손가락 하나가 내 코와 닿아요', image: 'pose-fingernose.png' },
+  { id: 'pose-fingerabovehead', color: 'pose', label: '손가락을 내 머리보다 높이 들어요', image: 'pose-fingerabovehead.png' },
+  { id: 'pose-pinkydown', color: 'pose', label: '집게손가락이 아래로 향해요', image: 'pose-pinkydown.png' },
+  { id: 'pose-indexisolate', color: 'pose', label: '집게손가락이 어디에도 닿지 않아요', image: 'pose-indexisolate.png' },
+  { id: 'pose-hideteeth', color: 'pose', label: '내 치아를 숨겨요', image: 'pose-hideteeth.png' },
 ]
 
 export const COLOR_STYLES = {
