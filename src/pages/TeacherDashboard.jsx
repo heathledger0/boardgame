@@ -12,7 +12,7 @@ import {
 import { getTeacherRoomIds, addTeacherRoomId, removeTeacherRoomId } from '../lib/storage'
 import ConfirmModal from '../components/ConfirmModal'
 
-const MAX_ROOMS = 10
+const MAX_ROOMS = 20
 
 const STATUS_LABEL = {
   waiting: '대기 중',
