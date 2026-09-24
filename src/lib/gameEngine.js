@@ -1,13 +1,18 @@
 import { ref, get, set, push, update, runTransaction, onValue } from 'firebase/database'
-import { db } from './firebase'
+import { getDb, GROUPS } from './firebase'
 import { CARD_DEFINITIONS } from '../data/cards'
 
 const MIN_PLAYERS = 2
 const MAX_PLAYERS = 6
 const ROOM_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // 헷갈리는 0/O, 1/I 제외
 
-function generateRoomCode(length = 4) {
-  let code = ''
+// 방 코드의 첫 글자가 그 방이 어느 Firebase 그룹(A/B/C)에 속하는지를 나타낸다.
+function dbForRoomId(roomId) {
+  return getDb(roomId[0])
+}
+
+function generateRoomCode(group, length = 3) {
+  let code = group
   for (let i = 0; i < length; i++) {
     code += ROOM_CODE_CHARS[Math.floor(Math.random() * ROOM_CODE_CHARS.length)]
   }
@@ -34,9 +39,11 @@ function nextTurnIndex(room, fromIndex) {
   return fromIndex
 }
 
-export async function createRoom(name) {
+export async function createRoom(name, group) {
+  if (!GROUPS.includes(group)) throw new Error('올바르지 않은 그룹입니다.')
+  const db = getDb(group)
   for (let attempt = 0; attempt < 5; attempt++) {
-    const roomId = generateRoomCode()
+    const roomId = generateRoomCode(group)
     const roomRef = ref(db, `rooms/${roomId}`)
     const snapshot = await get(roomRef)
     if (snapshot.exists()) continue
@@ -57,12 +64,12 @@ export async function createRoom(name) {
 }
 
 export async function getRoomOnce(roomId) {
-  const snapshot = await get(ref(db, `rooms/${roomId}`))
+  const snapshot = await get(ref(dbForRoomId(roomId), `rooms/${roomId}`))
   return snapshot.exists() ? snapshot.val() : null
 }
 
 export function subscribeToRoom(roomId, callback) {
-  const roomRef = ref(db, `rooms/${roomId}`)
+  const roomRef = ref(dbForRoomId(roomId), `rooms/${roomId}`)
   return onValue(roomRef, (snapshot) => {
     callback(snapshot.exists() ? snapshot.val() : null)
   })
@@ -83,7 +90,7 @@ export async function joinRoom(roomId, name) {
   if (Object.keys(players).length >= MAX_PLAYERS) {
     throw new Error(`정원이 가득 찼습니다 (최대 ${MAX_PLAYERS}명).`)
   }
-  const playerRef = push(ref(db, `rooms/${roomId}/players`))
+  const playerRef = push(ref(dbForRoomId(roomId), `rooms/${roomId}/players`))
   await set(playerRef, {
     name: name.trim() || '이름없음',
     hand: [],
@@ -96,11 +103,11 @@ export async function joinRoom(roomId, name) {
 export async function renameRoom(roomId, name) {
   const trimmed = name?.trim()
   if (!trimmed) throw new Error('모둠 이름을 입력해주세요.')
-  await update(ref(db, `rooms/${roomId}`), { name: trimmed })
+  await update(ref(dbForRoomId(roomId), `rooms/${roomId}`), { name: trimmed })
 }
 
 export async function startGame(roomId) {
-  const roomRef = ref(db, `rooms/${roomId}`)
+  const roomRef = ref(dbForRoomId(roomId), `rooms/${roomId}`)
   const room = await getRoomOnce(roomId)
   if (!room) throw new Error('존재하지 않는 방입니다.')
   const players = room.players || {}
@@ -117,7 +124,7 @@ export async function startGame(roomId) {
 // 재시작한 게임에서 지난 판에 아웃됐던 사람이 계속 순서에서 제외되는
 // 문제가 생기지 않는다.
 export async function resetRoom(roomId) {
-  const roomRef = ref(db, `rooms/${roomId}`)
+  const roomRef = ref(dbForRoomId(roomId), `rooms/${roomId}`)
   const room = await getRoomOnce(roomId)
   const deck = shuffle(CARD_DEFINITIONS.map((c) => c.id))
   const players = room?.players || {}
@@ -141,7 +148,7 @@ export async function resetRoom(roomId) {
 }
 
 export async function drawCard(roomId, playerId) {
-  const roomRef = ref(db, `rooms/${roomId}`)
+  const roomRef = ref(dbForRoomId(roomId), `rooms/${roomId}`)
   const { committed, snapshot } = await runTransaction(roomRef, (room) => {
     if (!room) return room
     if (room.status !== 'playing') return room
@@ -175,7 +182,7 @@ export async function drawCard(roomId, playerId) {
 // 본인이 confirmOut()으로 스스로 인정해야 확정된다. (장난으로 남을
 // 바로 탈락시키는 것을 막기 위함)
 export async function callOut(roomId, targetId) {
-  const roomRef = ref(db, `rooms/${roomId}`)
+  const roomRef = ref(dbForRoomId(roomId), `rooms/${roomId}`)
   await runTransaction(roomRef, (room) => {
     if (!room || !room.players?.[targetId]) return room
     if (room.players[targetId].eliminated) return room
@@ -186,7 +193,7 @@ export async function callOut(roomId, targetId) {
 
 // 지목당한 본인이 "인정"을 눌렀을 때만 호출되는 실제 아웃 처리.
 export async function confirmOut(roomId, playerId) {
-  const roomRef = ref(db, `rooms/${roomId}`)
+  const roomRef = ref(dbForRoomId(roomId), `rooms/${roomId}`)
   await runTransaction(roomRef, (room) => {
     if (!room || !room.players?.[playerId]) return room
     if (room.players[playerId].eliminated) return room

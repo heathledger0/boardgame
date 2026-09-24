@@ -136,6 +136,78 @@ button.small {
   color: #333;
 }
 
+.group-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.student-count-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 600;
+  max-width: 240px;
+  margin: 16px 0;
+}
+
+.student-count-label input {
+  font-size: 1.1rem;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
+
+.group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 16px 0;
+}
+
+.group-option {
+  border: 2px solid #ddd;
+  border-radius: 12px;
+  padding: 14px;
+  text-align: left;
+}
+
+.group-option.recommended {
+  border-color: #2f9e44;
+  background: #f1fbf3;
+}
+
+.group-option-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.badge {
+  background: #2f9e44;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.group-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: #eee;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.group-bar-fill {
+  height: 100%;
+  background: #2f9e44;
+}
+
 .room-actions {
   display: flex;
   gap: 8px;

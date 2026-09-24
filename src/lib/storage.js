@@ -1,5 +1,14 @@
 const TEACHER_ROOMS_KEY = 'bg_teacher_rooms'
+const TEACHER_GROUP_KEY = 'bg_teacher_group'
 const playerKey = (roomId) => `bg_player_${roomId}`
+
+export function getTeacherGroup() {
+  return localStorage.getItem(TEACHER_GROUP_KEY)
+}
+
+export function setTeacherGroup(group) {
+  localStorage.setItem(TEACHER_GROUP_KEY, group)
+}
 
 export function getTeacherRoomIds() {
   try {

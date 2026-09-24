@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { subscribeToRoom, drawCard, callOut, confirmOut } from '../lib/gameEngine'
+import { registerPresence } from '../lib/presence'
 import { getStoredPlayerId } from '../lib/storage'
 import { getCardById, COLOR_STYLES } from '../data/cards'
 import ConfirmModal from '../components/ConfirmModal'
@@ -25,6 +26,11 @@ export default function GameRoom() {
     }
     return subscribeToRoom(roomId, setRoom)
   }, [roomId, playerId, navigate])
+
+  useEffect(() => {
+    if (!playerId) return
+    return registerPresence(roomId[0])
+  }, [roomId, playerId])
 
   useEffect(() => {
     const event = room?.lastCallOut

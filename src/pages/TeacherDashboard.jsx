@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import {
   createRoom,
@@ -9,7 +9,15 @@ import {
   MIN_PLAYERS,
   MAX_PLAYERS,
 } from '../lib/gameEngine'
-import { getTeacherRoomIds, addTeacherRoomId, removeTeacherRoomId } from '../lib/storage'
+import { CONFIGURED_GROUPS, MAX_PER_GROUP } from '../lib/firebase'
+import { registerPresence, subscribeGroupCount } from '../lib/presence'
+import {
+  getTeacherRoomIds,
+  addTeacherRoomId,
+  removeTeacherRoomId,
+  getTeacherGroup,
+  setTeacherGroup,
+} from '../lib/storage'
 import ConfirmModal from '../components/ConfirmModal'
 
 const MAX_ROOMS = 20
@@ -20,7 +28,77 @@ const STATUS_LABEL = {
   finished: '종료',
 }
 
+function GroupPicker({ counts, currentGroup, onSelect, onCancel }) {
+  const [studentCount, setStudentCount] = useState('')
+  const needed = Number(studentCount) > 0 ? Number(studentCount) + 1 : null
+
+  const recommended = useMemo(() => {
+    if (!needed) return null
+    const withRoom = CONFIGURED_GROUPS.filter((g) => MAX_PER_GROUP - (counts[g] || 0) >= needed)
+    const pool = withRoom.length > 0 ? withRoom : CONFIGURED_GROUPS
+    return pool.reduce((best, g) => {
+      if (!best) return g
+      return (counts[g] || 0) < (counts[best] || 0) ? g : best
+    }, null)
+  }, [needed, counts])
+
+  return (
+    <div className="page centered">
+      <h1>사용할 그룹 선택</h1>
+      <p className="muted">
+        학교 전체 인원이 많으면 Firebase 접속 한도를 나눠 쓰기 위해 그룹(A/B/C)을
+        구분합니다. 담임 선생님마다 다른 그룹을 선택해주세요.
+      </p>
+
+      <label className="student-count-label">
+        오늘 이 반의 총 학생 수
+        <input
+          type="number"
+          min="1"
+          value={studentCount}
+          onChange={(e) => setStudentCount(e.target.value)}
+          placeholder="예: 24"
+        />
+      </label>
+
+      <div className="group-list">
+        {CONFIGURED_GROUPS.map((g) => {
+          const count = counts[g] || 0
+          const pct = Math.min(100, Math.round((count / MAX_PER_GROUP) * 100))
+          const isFull = MAX_PER_GROUP - count < 1
+          return (
+            <div className={`group-option ${recommended === g ? 'recommended' : ''}`} key={g}>
+              <div className="group-option-header">
+                <strong>그룹 {g}</strong>
+                {recommended === g && <span className="badge">추천</span>}
+                <span className="muted">
+                  {count}/{MAX_PER_GROUP}명
+                </span>
+              </div>
+              <div className="group-bar">
+                <div className="group-bar-fill" style={{ width: `${pct}%` }} />
+              </div>
+              <button onClick={() => onSelect(g)} disabled={isFull}>
+                {isFull ? '가득 참' : '이 그룹으로 시작'}
+              </button>
+            </div>
+          )
+        })}
+      </div>
+
+      {currentGroup && (
+        <button className="small" onClick={onCancel}>
+          취소하고 그룹 {currentGroup}(으)로 돌아가기
+        </button>
+      )}
+    </div>
+  )
+}
+
 export default function TeacherDashboard() {
+  const [group, setGroup] = useState(() => getTeacherGroup())
+  const [showGroupPicker, setShowGroupPicker] = useState(() => !getTeacherGroup())
+  const [groupCounts, setGroupCounts] = useState({})
   const [roomIds, setRoomIds] = useState(() => getTeacherRoomIds())
   const [rooms, setRooms] = useState({})
   const [error, setError] = useState('')
@@ -30,12 +108,32 @@ export default function TeacherDashboard() {
   const [editName, setEditName] = useState('')
 
   useEffect(() => {
+    const unsubs = CONFIGURED_GROUPS.map((g) =>
+      subscribeGroupCount(g, (count) => {
+        setGroupCounts((prev) => ({ ...prev, [g]: count }))
+      })
+    )
+    return () => unsubs.forEach((u) => u())
+  }, [])
+
+  useEffect(() => {
+    if (!group) return
+    return registerPresence(group)
+  }, [group])
+
+  useEffect(() => {
     if (roomIds.length === 0) return
     const unsubscribe = subscribeToRoomList(roomIds, (id, room) => {
       setRooms((prev) => ({ ...prev, [id]: room }))
     })
     return unsubscribe
   }, [roomIds])
+
+  function handleSelectGroup(g) {
+    setTeacherGroup(g)
+    setGroup(g)
+    setShowGroupPicker(false)
+  }
 
   async function handleCreateRoom() {
     setError('')
@@ -46,7 +144,7 @@ export default function TeacherDashboard() {
     setBusy(true)
     try {
       const defaultName = `${roomIds.length + 1}모둠`
-      const roomId = await createRoom(defaultName)
+      const roomId = await createRoom(defaultName, group)
       addTeacherRoomId(roomId)
       setRoomIds(getTeacherRoomIds())
     } catch (e) {
@@ -91,6 +189,17 @@ export default function TeacherDashboard() {
     }
   }
 
+  if (showGroupPicker || !group) {
+    return (
+      <GroupPicker
+        counts={groupCounts}
+        currentGroup={group}
+        onSelect={handleSelectGroup}
+        onCancel={() => setShowGroupPicker(false)}
+      />
+    )
+  }
+
   return (
     <div className="page">
       <ConfirmModal
@@ -105,7 +214,17 @@ export default function TeacherDashboard() {
         onConfirm={confirmPendingAction}
         onCancel={() => setPendingAction(null)}
       />
-      <h1>모둠 카드 게임 - 교사 대시보드</h1>
+      <div className="room-card-header">
+        <h1>모둠 카드 게임 - 교사 대시보드</h1>
+        <span className="group-indicator">
+          그룹 {group} ({groupCounts[group] || 0}/{MAX_PER_GROUP})
+          {CONFIGURED_GROUPS.length > 1 && (
+            <button className="small" onClick={() => setShowGroupPicker(true)}>
+              그룹 변경
+            </button>
+          )}
+        </span>
+      </div>
       <p className="muted">
         모둠마다 방을 만들고 QR코드를 보여주면, 학생들은 스캔해서 바로 입장합니다. (최대{' '}
         {MAX_ROOMS}개 모둠, 방마다 {MIN_PLAYERS}~{MAX_PLAYERS}명)
