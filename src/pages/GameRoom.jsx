@@ -184,13 +184,15 @@ export default function GameRoom() {
                 <div
                   className="card"
                   key={card.id}
-                  style={{ background: style.bg, borderColor: style.border, color: style.text }}
+                  style={{ background: style.bg, borderColor: style.border }}
                 >
-                  {card.image ? (
-                    <img src={`/cards/${card.image}`} alt={card.label} />
-                  ) : (
-                    <span>{card.label}</span>
-                  )}
+                  {card.image && <img src={`/cards/${card.image}`} alt="" className="card-img" />}
+                  <span
+                    className="card-label"
+                    style={card.image ? { background: style.border } : { color: style.text }}
+                  >
+                    {card.label}
+                  </span>
                 </div>
               ))}
             </div>
